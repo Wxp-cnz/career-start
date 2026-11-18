@@ -35,5 +35,5 @@ print("平均分：", avg)
 
 report("小妮子", scores[0])
 
-top = scores[3]
+top = max(scores)
 print("最高分：", top)
