@@ -1,5 +1,54 @@
 # Python 工程基础笔记
 
+## 0. 日常命令
+
+### 0.1 运行脚本
+
+```bash
+uv run python practice/01-sum.py    # 推荐：自动使用项目虚拟环境
+python practice/01-sum.py           # 仅在已 activate 时可用
+uv run python                       # 交互式解释器，Ctrl+D 或 exit() 退出
+```
+
+`uv run` 每次自动定位 `.venv`，不依赖当前终端是否激活。
+
+### 0.2 提交代码
+
+Git 的三段式：**工作区 → 暂存区 → 本地版本库 → 远程仓库**
+
+| 命令 | 作用 |
+|---|---|
+| `git status` | 查看哪些文件被修改、哪些已暂存 |
+| `git add 文件名` | 把指定文件放入暂存区 |
+| `git commit -m "说明"` | 把暂存区内容保存为一个版本 |
+| `git push` | 把本地提交推送到远程仓库 |
+| `git log --oneline` | 查看提交历史，一行一条 |
+
+一次完整提交：
+
+```bash
+git status                          # 先看改了什么
+git add practice/04-palindrome.py   # 只暂存这个文件
+git commit -m "feat(practice): 完成练习 4 判断回文"
+git push
+```
+
+- 保存文件（Ctrl+S）不等于提交，只改动了工作区
+- 优先 `git add 具体文件名`，避免 `git add .` 把无关文件一起提交
+- 暂存错了用 `git restore --staged 文件名` 撤回
+
+### 0.3 提交信息格式
+
+`类型(范围): 说明`，类型用下列前缀：
+
+| 前缀 | 用于 |
+|---|---|
+| `feat` | 新增功能或练习 |
+| `fix` | 修复错误 |
+| `docs` | 文档、笔记 |
+| `refactor` | 重写实现但不改变行为 |
+| `chore` | 环境、依赖、配置 |
+
 ## 1. 运行环境
 
 ### 1.1 环境的三要素
