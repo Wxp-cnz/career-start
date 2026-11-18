@@ -20,12 +20,12 @@ def average(scores):
     total = 0
     for s in scores:
         total += s
-    return totol / len(scores)
+    return total / len(scores)
 
 
 def report(name, score):
     print("学生：" + name)
-    print("成绩：" + score)
+    print("成绩：" + str(score))
     print("评价：" + ("优秀" if score >= 90 else "继续加油"))
 
 
@@ -35,5 +35,5 @@ print("平均分：", avg)
 
 report("小妮子", scores[0])
 
-top = scores[5]
+top = scores[3]
 print("最高分：", top)
