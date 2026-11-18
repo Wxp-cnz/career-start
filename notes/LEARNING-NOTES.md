@@ -49,6 +49,42 @@ git push
 | `refactor` | 重写实现但不改变行为 |
 | `chore` | 环境、依赖、配置 |
 
+### 0.4 网络与代理检查
+
+推送失败、装包超时前，先确认网络是否通：
+
+```bash
+# 直连
+curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 https://github.com
+
+# 走代理
+curl -s -o /dev/null -w "%{http_code}\n" --max-time 10 -x http://127.0.0.1:7897 https://github.com
+```
+
+| 参数 | 作用 |
+|---|---|
+| `-s` | 静默，不显示进度条 |
+| `-o /dev/null` | 丢弃响应正文 |
+| `-w "%{http_code}\n"` | 只输出 HTTP 状态码 |
+| `--max-time 10` | 10 秒超时 |
+| `-x <地址>` | 通过指定代理访问 |
+
+状态码判读：
+
+| 输出 | 含义 |
+|---|---|
+| `200` | 连通 |
+| `000` | 连接失败或超时（代理未开、节点不可用、目标不可达） |
+| `407` | 代理要求认证 |
+
+查看 Git 当前使用的代理：
+
+```bash
+git config --get http.proxy
+```
+
+临时关闭代理：`git config --global --unset http.proxy`；重新设置：`git config --global http.proxy http://127.0.0.1:7897`。
+
 ## 1. 运行环境
 
 ### 1.1 环境的三要素
