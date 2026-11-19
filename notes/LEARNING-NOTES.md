@@ -85,6 +85,85 @@ git config --get http.proxy
 
 临时关闭代理：`git config --global --unset http.proxy`；重新设置：`git config --global http.proxy http://127.0.0.1:7897`。
 
+### 0.5 从空文件夹起一个项目
+
+六步，从零到一个可提交、可复现的项目。
+
+#### 步骤
+
+| # | 命令 | 作用 | 完成后新增 |
+|---|---|---|---|
+| 1 | `mkdir 项目名` + `cd 项目名` | 建空目录并切换工作目录 | 一个空文件夹 |
+| 2 | `uv init --bare` | 声明「这是一个 Python 项目」 | `pyproject.toml` |
+| 3 | `uv add 包名` | 解析依赖 → 下载 → 装入 `.venv` → 记录 | `.venv/`、`uv.lock`，且 `pyproject.toml` 多出依赖行 |
+| 4 | `uv run python -c "import 包名; print(包名.__version__)"` | 验证环境可用 | 无文件，仅屏幕输出 |
+| 5 | 新建 `.gitignore` 并写入忽略规则 | 告诉 git 哪些文件不必跟踪 | `.gitignore` |
+| 6 | `git init` → `git add .` → `git commit -m "..."` | 建立版本历史，留下可回退的存档点 | `.git/` |
+
+第 1 步之后建议 `pwd` 确认位置，后续所有命令都作用于「当前工作目录」。
+
+#### 第 5 步的 `.gitignore` 内容
+
+```gitignore
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/
+.idea/
+```
+
+`.venv/` 不必写：`venv` 与 `uv` 在创建虚拟环境时会自动生成 `.venv/.gitignore`，内容为 `*`，即该目录下所有文件都不被 git 看见。
+
+`.gitignore` 是给未来准备的：上述文件在还没产生时，写入规则也不会让 `git status` 有任何变化。
+
+#### 第 6 步的细节
+
+```bash
+git init                        # 建立空仓库，尚无任何版本
+git status                      # 确认待提交的文件恰好是该提交的那些
+git add .                       # 放入暂存区
+git commit -m "chore: 初始化项目"
+git branch -M main             # 可选：分支名统一为 main
+git log --oneline              # 确认历史
+```
+
+`git init` 与 `git add` 都不产生可见文件，它们改动的是 `.git/` 内的数据。`add` 不是复制文件，而是把内容记入暂存区。
+
+#### 最终得到
+
+| 产物 | 内容 | 是否提交 |
+|---|---|---|
+| `pyproject.toml` | 依赖声明 | 是 |
+| `uv.lock` | 精确版本 | 是 |
+| `.gitignore` | 忽略规则 | 是 |
+| `.git/` | 全部版本历史，自动生成 | — |
+| `.venv/` | 装好的库，可由前两者重建 | 否 |
+
+#### 常见坑
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| `ls` 看不到 `.venv` | 以 `.` 开头的文件是隐藏文件 | `ls -a` |
+| 把文件内容敲进终端，报 `No such file or directory` | 终端只执行命令，不接收文件内容 | 用编辑器写，或 `echo "内容" > 文件` |
+| 跨项目后报 `VIRTUAL_ENV ... does not match` | `activate` 绑定终端窗口，不绑定目录，切目录后仍然生效 | `deactivate`；日常改用 `uv run` |
+| 误把 `__pycache__` 等提交了 | 提交前未写 `.gitignore` | `git rm --cached 文件名` 后再提交（文件保留在磁盘） |
+
+`>` 是覆盖写入，`>>` 是追加写入。建文件用 `>`，后续补内容用 `>>`。
+
+### 0.6 需要形成肌肉记忆的命令
+
+命令的通用结构是 **工具 + 动词 + 对象**（`uv add requests`、`git commit -m "..."`），记住动词即可，具体参数用 `--help` 查。
+
+必须闭眼能敲的只有三条：
+
+| 命令 | 理由 |
+|---|---|
+| `uv run python 文件.py` | 最常用；漏掉 `uv run` 会误用全局环境 |
+| `uv add 包名` | 每次装包都用，且同时改动三个位置 |
+| `git add` → `git commit` → `git push` | 每次收工的动作，三条连成一组 |
+
+其余命令（`uv init`、`uv sync`、`uv remove`、`git log`、`git rm --cached` 等）用到时查笔记或 `--help`，不必背。
+
 ## 1. 运行环境
 
 ### 1.1 环境的三要素
