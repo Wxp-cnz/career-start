@@ -5,7 +5,10 @@
 
 def fibonacci_list(n):
     list_fib = [1, 1]
-    
+    if n == 1:
+        return [1]
+    if n == 0:
+        return []    
     for _ in range(2, n):
         list_fib.append(list_fib[-1] + list_fib[-2])
     return list_fib
