@@ -164,6 +164,20 @@ git log --oneline              # 确认历史
 
 其余命令（`uv init`、`uv sync`、`uv remove`、`git log`、`git rm --cached` 等）用到时查笔记或 `--help`，不必背。
 
+### 0.7 重命名文件（git mv）
+
+```bash
+git mv 旧路径 新路径
+```
+
+等价于 `mv 旧 新` + `git add 新` + `git rm 旧` 三个动作，一步完成。
+
+目的在于让 git 把这次变更识别为**重命名**（状态 `R`），而不是「删掉一个文件、又新增一个」，历史因此保持连续。
+
+- `git log --follow 文件名` 可以跨过改名继续追溯之前的历史
+- 先手动 `mv` 再 `git add` 也能被识别——git 是在比较提交时按内容相似度推断重命名的，但容易漏掉移除旧文件这一步，`git mv` 更稳妥
+- 若改名同时大幅改写内容，相似度低于阈值（默认 50%）时会显示为删除 + 新增
+
 ## 1. 运行环境
 
 ### 1.1 环境的三要素
@@ -431,6 +445,28 @@ max(*[[3, 1, 2]])       # 等价于 max([3, 1, 2])，结果 3
 - `importlib.import_module("07-fibonacci")` 以字符串传参可绕过语法检查，但不符合惯例，pytest 不会这样做
 - 结论：文件名以字母或下划线开头，单词间用下划线，不用连字符、空格、数字开头
 
+### 3.5 卫语句（guard clause）
+
+在函数开头先拦掉边界与异常输入，用 `return` 直接结束，后面的主逻辑就不必再考虑这些情况：
+
+```python
+def fibonacci_list(n):
+    if n <= 0:
+        return []
+    if n == 1:
+        return [1]
+
+    fib = [1, 1]
+    for _ in range(2, n):
+        fib.append(fib[-1] + fib[-2])
+    return fib
+```
+
+不使用卫语句时，主逻辑必须嵌在 `if` 里，缩进逐层加深，且要额外写 `else`。卫语句把「特殊情况」全部集中在函数顶部，主逻辑从第一行起就是正常路径，可读性更好。
+
+- 常见用途：参数校验、空值 / 空列表 / 负数处理
+- 判断「非正数」应写 `n <= 0`：只写 `n == 0` 会漏掉负数，负数将走进主逻辑
+
 ## 4. 文件与路径
 
 ### 4.1 工作目录与相对路径
@@ -518,3 +554,98 @@ c = {"zebra": 1, "ant": 5}
 max(c)                  # 'zebra'  字母序最大
 max(c, key=c.get)       # 'ant'    次数最多
 ```
+
+## 5. 测试
+
+### 5.1 安装与配置
+
+```bash
+uv add --dev pytest
+```
+
+`--dev` 把 pytest 记入 `pyproject.toml` 的 `[dependency-groups]` 下 `dev` 组，与主依赖分开：主依赖是运行代码必需的，dev 组只在开发和测试时需要。部署时可用 `uv sync --no-dev` 跳过。
+
+```toml
+[tool.pytest.ini_options]
+pythonpath = ["practice"]
+testpaths = ["tests"]
+```
+
+- `pythonpath`：把目录加入 import 搜索路径，测试文件可以直接 `import 模块名`
+- `testpaths`：限定搜索测试的目录，减少无关扫描
+
+验证：`uv run pytest --version`
+
+### 5.2 三个核心概念
+
+**一、测试函数**
+
+名字以 `test_` 开头，函数体用 `assert` 声明预期：
+
+```python
+def test_first_five():
+    assert fibonacci_list(5) == [1, 1, 2, 3, 5]
+```
+
+**二、断言**
+
+`assert 条件`：条件为真则静默通过；为假则抛 `AssertionError`，并打印两侧的实际值。
+
+```python
+assert fibonacci_list(1) == [1]
+# AssertionError: assert [1, 1] == [1]
+```
+
+一个测试函数只放一个断言——失败时只报第一个，多个断言会互相掩盖。
+
+**三、发现规则**
+
+pytest 按命名查找，不符合规则的不会被收集执行：
+
+| 对象 | 规则 |
+|---|---|
+| 文件 | `test_*.py` 或 `*_test.py` |
+| 函数 | `test_*` |
+| 类 | `Test*`（且不含 `__init__`） |
+
+写完没跑起来，先检查命名。
+
+### 5.3 常用命令
+
+| 命令 | 作用 |
+|---|---|
+| `uv run pytest` | 运行全部测试 |
+| `uv run pytest -v` | 逐条列出每个测试及结果 |
+| `uv run pytest -q` | 精简输出 |
+| `uv run pytest -x` | 遇到第一个失败即停止 |
+| `uv run pytest -k 关键字` | 只运行名字含关键字的测试 |
+| `uv run pytest --lf` | 只重跑上次失败的测试 |
+| `uv run pytest -s` | 不捕获输出，显示测试中的 print |
+| `uv run pytest tests/test_x.py` | 只跑指定文件 |
+| `uv run pytest tests/test_x.py::test_y` | 只跑指定函数 |
+
+### 5.4 失败时先判断改哪边
+
+测试失败只说明「测试与代码不一致」，不等于代码有错。
+
+| 现象 | 判据 | 改哪边 |
+|---|---|---|
+| 函数返回值与需求不符 | 需求 / 数学定义 | 改代码 |
+| 测试的期望值或判断写错 | 需求 / 数学定义 | 改测试 |
+
+做法：先独立确定「正确答案是什么」，再看代码与测试各自偏离在哪。若一个断言里同时错了多处，先修一处、跑一次，否则两个错误会互相掩盖，报错信息看不出问题。
+
+### 5.5 三个高频坑
+
+**一、改完没保存。** pytest 读磁盘文件，编辑器里的是内存副本，`Ctrl+S` 才落盘。症状是「明明改了，报错一模一样」。标签页上的小圆点表示未保存。
+
+**二、用 `python test_x.py` 运行测试。** 测试文件里只有 `def`，没有执行语句，用 python 跑不会有任何结果。测试必须由 pytest 收集并执行。
+
+**三、模块级代码在 import 时执行。** 测试文件 `import 模块` 时，模块顶层的 `print(...)` 和函数调用都会真的运行。脚本自身的测试代码应放在：
+
+```python
+if __name__ == "__main__":
+    print(fibonacci_list(20))
+```
+
+`__name__` 在直接运行该文件时为 `"__main__"`，被 import 时为模块名，因此这段代码只在直接执行时生效。
