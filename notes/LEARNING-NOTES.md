@@ -384,3 +384,137 @@ b = a + b        # 用的是新的 a，结果错误
 - 右边可以是任意可迭代对象：`a, b = [1, 2]`、`c1, c2 = "xy"`
 - 左右数量必须一致，否则抛 `ValueError`
 - 交换变量不必借临时变量：`a, b = b, a` 就是同一机制的直接应用
+
+### 3.3 `*` 解包
+
+`*` 的作用是「把一个可迭代对象拆成独立的元素」。出现位置不同，效果不同：
+
+| 位置 | 写法 | 作用 |
+|---|---|---|
+| 函数调用 | `f(*nums)` | 把序列拆成多个位置参数 |
+| 函数定义 | `def f(*args)` | 把多余的位置参数收集成元组 |
+| 列表 / 元组字面量 | `[*a, *b]` | 合并多个可迭代对象 |
+| 字典 | `{**d1, **d2}`、`f(**d)` | 拆成键值对 |
+
+常见例子：
+
+```python
+nums = [[1, 2, 3], [4, 5, 6]]
+
+zip(*nums)              # 等价于 zip([1, 2, 3], [4, 5, 6])
+                        # 产出 (1, 4) (2, 5) (3, 6)
+list(zip(*nums))        # [(1, 4), (2, 5), (3, 6)]
+
+[*[1, 2], *[3, 4]]      # [1, 2, 3, 4]
+max(*[[3, 1, 2]])       # 等价于 max([3, 1, 2])，结果 3
+```
+
+`zip(*matrix)` 是矩阵转置的核心：`*` 把「行的列表」拆成「一行一个参数」，`zip` 再按位置把各行的同列元素咬合起来。行数不限，`zip(*[])` 返回空。
+
+### 3.4 模块名与文件命名
+
+`import` 语句接受的模块名必须是**合法标识符**。标识符规则：以字母或下划线开头，后续字符只能是字母、数字、下划线。
+
+因此下列文件名无法被 import：
+
+| 文件名 | 问题 | 实际报错 |
+|---|---|---|
+| `07-fibonacci.py` | 含连字符 | `SyntaxError`（被解析为 `07 - fibonacci`） |
+| `07_fibonacci.py` | 数字开头 | `SyntaxError: invalid decimal literal` |
+| `my file.py` | 含空格 | `SyntaxError` |
+
+合法写法：`fibonacci.py`、`ex07_fibonacci.py`、`word_count.py`。
+
+要点：
+
+- 用 `python 文件名.py` 直接执行的脚本不受限制，但一旦需要被 import（被测试、被其他模块引用）就必须合法
+- `importlib.import_module("07-fibonacci")` 以字符串传参可绕过语法检查，但不符合惯例，pytest 不会这样做
+- 结论：文件名以字母或下划线开头，单词间用下划线，不用连字符、空格、数字开头
+
+## 4. 文件与路径
+
+### 4.1 工作目录与相对路径
+
+- **工作目录**（current working directory）：执行命令时所在的目录
+- `pwd` 打印当前工作目录，`cd 路径` 切换
+- **相对路径**不以 `/` 或盘符开头，从工作目录开始解析
+- **绝对路径**完整指定，从盘符或 `/` 开始
+
+同一行代码在不同工作目录下执行，解析结果不同：
+
+```python
+open("practice/data/sample-text.txt")
+```
+
+| 工作目录 | 实际查找的位置 |
+|---|---|
+| 仓库根目录 | `<根>/practice/data/sample-text.txt` ✓ |
+| `practice/` | `<根>/practice/practice/data/sample-text.txt` ✗ |
+
+第二种情况抛 `FileNotFoundError: [Errno 2] No such file or directory`。
+
+关键结论：**相对路径相对的是工作目录，不是脚本文件所在的目录**。同一文件用终端 `uv run` 运行和用 VS Code 运行按钮运行，工作目录可能不同（后者以文件所在目录为工作目录），于是出现「刚才还能跑，现在报错」。
+
+排查顺序：`pwd` 确认位置 → 核对路径拼写 → 检查是否多了一层同名目录。
+
+让路径不依赖工作目录的写法：
+
+```python
+from pathlib import Path
+
+BASE = Path(__file__).parent        # 本文件所在目录的绝对路径
+path = BASE / "data" / "sample-text.txt"
+```
+
+- `__file__` 是当前脚本的路径，`Path(__file__).parent` 取所在目录
+- Python 中获取工作目录：`Path.cwd()` 或 `os.getcwd()`
+
+### 4.2 读文件
+
+```python
+with open(path, encoding="utf-8") as f:
+    text = f.read()
+```
+
+- `open()` 返回文件对象，`read()` 把全部内容读成一个字符串
+- `with` 保证退出代码块时自动关闭文件，即使中途抛异常
+- `encoding` 显式指定编码。不指定时使用平台默认编码（Windows 传统上为 GBK/cp936，若启用了 UTF-8 模式则为 utf-8），因此读取含中文的文件时应始终写 `encoding="utf-8"`，避免换机器后报 `UnicodeDecodeError`
+- 其他读法：`f.readlines()` 返回行列表；`for line in f:` 逐行迭代，处理大文件时更省内存
+
+### 4.3 切分与计数
+
+`str.split()` 的两种形式行为不同：
+
+```python
+"a  b\tc\n".split()      # ['a', 'b', 'c']     按任意空白切分，丢弃空串
+"a  b\tc\n".split(" ")   # ['a', '', 'b\tc\n'] 只按单个空格切分，保留空串
+```
+
+统计词频的通用模式：
+
+```python
+counts = {}
+for w in words:
+    counts[w] = counts.get(w, 0) + 1
+```
+
+- `dict.get(key, default)`：键存在返回对应值，不存在返回 `default`，不会抛 `KeyError`
+- 写成 `counts[w] += 1` 时，键不存在会抛 `KeyError`
+
+取「值最大的键」：
+
+```python
+max(counts, key=counts.get)
+```
+
+- 不带 `key` 时比较的是键本身（按字母序），返回字母序最大的键
+- `key=counts.get` 把比较依据换成对应的值，返回出现次数最多的键
+- 出现并列时返回最先遇到的那个（字典保持插入顺序）
+
+两者结果可能不同，注意区分：
+
+```python
+c = {"zebra": 1, "ant": 5}
+max(c)                  # 'zebra'  字母序最大
+max(c, key=c.get)       # 'ant'    次数最多
+```
